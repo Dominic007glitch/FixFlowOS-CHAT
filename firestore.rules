@@ -53,6 +53,11 @@ service cloud.firestore {
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.status == resource.data.status;
 
+      match /auditoriaOS/{eventId} {
+        allow read: if storeMember(lojaId) && role() in ['admin', 'vendedorTecnico', 'tecnico'];
+        allow create, update, delete: if false;
+      }
+
       match /ordensServico/{osId} {
         allow read: if storeMember(lojaId) && (role() in ['admin', 'vendedorTecnico', 'tecnico']);
         // Criação e atualização usam endpoint server-side: valida contador sequencial e senha criptografada.
