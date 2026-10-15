@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   try {
     requireMethod(req, ['POST'])
     const { profile, db, FieldValue } = await authenticatedProfile(req)
-    requireStoreRole(profile, ['admin', 'vendedorTecnico'])
+    requireStoreRole(profile, ['admin'])
     await requireActiveStore(profile, db)
     const body = req.body || {}
     const shop = db.collection('lojas').doc(profile.lojaId)
