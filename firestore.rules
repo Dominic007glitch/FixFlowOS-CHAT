@@ -28,7 +28,7 @@ service cloud.firestore {
     function isSeller(lojaId) { return storeMember(lojaId) && role() == 'vendedorTecnico'; }
     function isTechnician(lojaId) { return storeMember(lojaId) && role() == 'tecnico'; }
     function canReadStock(lojaId) { return isOwner(lojaId) || isSeller(lojaId) || isTechnician(lojaId); }
-    function canManageStock(lojaId) { return isOwner(lojaId) || isSeller(lojaId); }
+    function canManageStock(lojaId) { return isOwner(lojaId); }
     function keysOnly(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
     match /usuarios/{uid} {
