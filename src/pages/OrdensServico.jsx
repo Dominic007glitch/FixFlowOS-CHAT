@@ -72,8 +72,7 @@ export default function OrdensServico() {
       if (!editing) payload.dataAbertura = new Date().toISOString()
       if (editing) {
         const { id, ...allUpdates } = payload
-        const technicianFields = ['diagnostico', 'pecas', 'insumosUtilizados', 'status', 'tecnicoResponsavel', 'observacoes', 'tipoSenha', 'senha']
-        const updates = user.cargo === 'tecnico' ? Object.fromEntries(technicianFields.filter(field => Object.hasOwn(allUpdates, field)).map(field => [field, allUpdates[field]])) : allUpdates
+        const updates = allUpdates
         await updateOS(user.lojaId, editing.id, editing.status, updates, user)
         setNotice('Ordem de serviço atualizada.')
       } else {
