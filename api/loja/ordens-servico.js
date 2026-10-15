@@ -40,11 +40,6 @@ export default async function handler(req, res) {
       const osId = String(body.osId || '')
       if (!osId) return res.status(400).json({ error: 'ID da OS não informado.' })
       const updates = body.data || {}
-      if (profile.cargo === 'tecnico') {
-        const technicianFields = new Set(['diagnostico', 'pecas', 'insumosUtilizados', 'status', 'tecnicoResponsavel', 'observacoes', 'tipoSenha', 'senha'])
-        const forbidden = Object.keys(updates).filter(field => (CLIENT_FIELDS.includes(field) || field === 'senha') && !technicianFields.has(field))
-        if (forbidden.length) { const error = new Error('O cargo Técnico pode alterar somente os campos técnicos permitidos; dados do cliente e financeiros exigem outro cargo.'); error.status = 403; throw error }
-      }
       const clean = {}
       for (const field of CLIENT_FIELDS) if (Object.hasOwn(updates, field)) clean[field] = updates[field]
       if (Object.hasOwn(clean, 'valorReparo')) {
@@ -78,9 +73,19 @@ export default async function handler(req, res) {
         } else if (clean.aceiteTermo === true && old.aceiteTermo !== true) {
           clean.historicoTermos = FieldValue.arrayUnion({ acao: 'aceite', usuarioUid: profile.uid, criadoEm: new Date().toISOString(), versao: '1.0' })
         }
+        const auditChanges = {}
+        for (const [field, value] of Object.entries(clean)) {
+          if (['updatedAt', 'updatedBy', 'historicoStatus', 'historicoTermos', 'aceiteTermoEm', 'versaoTermo', 'senhaProtegida'].includes(field)) continue
+          const before = old[field] ?? null
+          if (JSON.stringify(before) !== JSON.stringify(value)) auditChanges[field] = { anterior: before, novo: value }
+        }
         transaction.update(osRef, clean)
+        if (Object.keys(auditChanges).length) {
+          const auditRef = storeRef.collection('auditoriaOS').doc()
+          transaction.create(auditRef, { osId, numeroOS: old.numeroOS ?? null, acao: 'edicao', usuarioUid: profile.uid, usuarioNome: profile.nome || profile.email || '', alteracoes: auditChanges, createdAt: FieldValue.serverTimestamp(), criadoEm: new Date().toISOString() })
+        }
       })
-      return res.status(200).json({ ok: true, message: 'OS atualizada.' })
+      return res.status(200).json({ ok: true, message: 'OS atualizada e histórico registrado.' })
     }
 
     const data = body.data || body
@@ -118,6 +123,8 @@ export default async function handler(req, res) {
       payload.historicoTermos = data.aceiteTermo === true ? [{ acao: 'aceite', usuarioUid: profile.uid, criadoEm: new Date().toISOString(), versao: '1.0' }] : []
       if (data.senha) payload.senhaProtegida = encryptSensitive(data.senha)
       transaction.create(osRef, payload)
+      const auditRef = storeRef.collection('auditoriaOS').doc()
+      transaction.create(auditRef, { osId: osRef.id, numeroOS: nextNumber, acao: 'criacao', usuarioUid: profile.uid, usuarioNome: profile.nome || profile.email || '', alteracoes: { status: { anterior: null, novo: payload.status }, cliente: { anterior: null, novo: payload.cliente }, valorReparo: { anterior: null, novo: payload.valorReparo } }, createdAt: FieldValue.serverTimestamp(), criadoEm: new Date().toISOString() })
     })
     return res.status(201).json({ ok: true, osId: osRef.id, numeroOS: nextNumber, message: `OS #${nextNumber} criada com sucesso.` })
   } catch (error) { return sendError(res, error, 'Não foi possível salvar a ordem de serviço.') }
